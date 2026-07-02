@@ -5,11 +5,14 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:           # Manual trigger
+  workflow_dispatch:
 
 jobs:
   security-checks:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -18,14 +21,12 @@ jobs:
         with:
           python-version: '3.9'
 
-      # 1️⃣ SAST - Bandit
       - name: Run Bandit SAST
         uses: PyCQA/bandit-action@v1
         with:
           targets: app/
           severity: HIGH
 
-      # 2️⃣ Dependency Scan
       - name: Install dependencies
         run: pip install -r app/requirements.txt
 
@@ -37,6 +38,9 @@ jobs:
   container-scan:
     needs: security-checks
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -52,18 +56,10 @@ jobs:
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
           ignore-unfixed: true
+          # Trivy ko vulnerabilities find karne do
 
       - name: Upload Trivy results to Security tab
         uses: github/codeql-action/upload-sarif@v3
         if: success() || failure()
         with:
           sarif_file: 'trivy-results.sarif'
-      - - name: Run Trivy vulnerability scanner
-      - uses: aquasecurity/trivy-action@master
-      - with:
-      - image-ref: myapp:${{ github.sha }}
-      - format: 'sarif'
-      - output: 'trivy-results.sarif'
-      - severity: 'CRITICAL,HIGH'
-      - exit-code: '1'
-      - ignore-unfixed: true   # <-- Ye line add karo
